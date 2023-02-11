@@ -26,7 +26,14 @@
         <service
             android:name=".ScreenCaptureService"
             android:foregroundServiceType="mediaProjection" />
-
+        <receiver
+            android:name=".SceenShotBroadCastReciver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="restartservice" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

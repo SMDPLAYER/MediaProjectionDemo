@@ -30,9 +30,11 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 
 import androidx.core.util.Pair;
+import androidx.lifecycle.MutableLiveData;
 
 public class ScreenCaptureService extends Service {
 
+    public static MutableLiveData<Bitmap> liveCapture = new MutableLiveData<>();
     private static final String TAG = "ScreenCaptureService";
     private static final String RESULT_CODE = "RESULT_CODE";
     private static final String DATA = "DATA";
@@ -82,6 +84,7 @@ public class ScreenCaptureService extends Service {
         return DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY | DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
     }
 
+ static    boolean isFirst=true;
     private class ImageAvailableListener implements ImageReader.OnImageAvailableListener {
         @Override
         public void onImageAvailable(ImageReader reader) {
@@ -90,6 +93,21 @@ public class ScreenCaptureService extends Service {
             Bitmap bitmap = null;
             try (Image image = mImageReader.acquireLatestImage()) {
                 if (image != null) {
+                    if (isFirst){
+                        int mWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
+                        int mHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
+                        Image.Plane[] planes = image.getPlanes();
+                        ByteBuffer buffer = planes[0].getBuffer();
+                        int pixelStride = planes[0].getPixelStride();
+                        int rowStride = planes[0].getRowStride();
+                        int rowPadding = rowStride - pixelStride * mWidth;
+
+                        // create bitmap
+                        Bitmap bitmap1 = Bitmap.createBitmap(mWidth + rowPadding / pixelStride, mHeight, Bitmap.Config.ARGB_8888);
+                        bitmap1.copyPixelsFromBuffer(buffer);
+                        liveCapture.postValue(bitmap1);
+                        isFirst=false;
+                    }
                     Image.Plane[] planes = image.getPlanes();
                     ByteBuffer buffer = planes[0].getBuffer();
                     int pixelStride = planes[0].getPixelStride();
@@ -106,6 +124,7 @@ public class ScreenCaptureService extends Service {
 
                     IMAGES_PRODUCED++;
                     Log.e(TAG, "captured image: " + IMAGES_PRODUCED);
+
                 }
 
             } catch (Exception e) {
@@ -176,6 +195,9 @@ public class ScreenCaptureService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        // create notification
+        Pair<Integer, Notification> notification = NotificationUtils.getNotificationStart(this);
+        startForeground(notification.first, notification.second);
 
         // create store dir
         File externalFilesDir = getExternalFilesDir(null);
